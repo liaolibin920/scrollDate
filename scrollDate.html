@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0,  user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <title>scrollDate</title>
+    <style>
+        *{
+            margin:0px;
+            padding:0px;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+            -webkit-touch-callout:none;
+            -webkit-user-select: none;
+            -webkit-appearance:none;
+            outline: none;
+            word-break: break-all;
+            box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+        }
+        html, body{
+            width: 100%;
+            height:100%;
+        }
+        input[type="text"], input[type="email"], input[type="url"], input[type="number"], input[type="password"], textarea{
+            -webkit-user-select: text;
+        }
+        a{
+            text-decoration:none;
+        }
+        ul, ol, li{
+            list-style:none;
+        }
+        img{
+            border:0;
+        }
+        table{
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+        /*-------------------------*/
+        body{
+            font-family: "STHeitiSC";
+            font-size: 12px;
+        }
+        .c{
+            zoom:1;
+        }
+        .c:after{
+            content:".";
+            display:block;
+            height:0;
+            clear:both;
+            visibility:hidden;
+        }
+        .fl{
+            float: left!important;
+        }
+        .fr{
+            float: right!important;
+        }
+        .tal{
+            text-align: left!important;
+        }
+        .tac{
+            text-align: center!important;
+        }
+        .tar{
+            text-align: right!important;
+        }
+        /*-------------------------*/
+        .bg-modal{width:100%;height:100%;position: fixed;left:0;top:0;background: rgba(0,0,0,.2);-webkit-tap-highlight-color:rgba(0,0,0,0);}
+        .calendar{background:#fff;width:100%;height:180px;position: absolute;left:0;top:20%;text-align:center;background:#fff;font:bold 22px/22px "arial,verdana,sans-serif";color:#9d9d9d;}
+        .year,.month,.date,.hour,.minute{
+            position: relative;width:40%;height:100%;overflow: hidden;float: left;
+        }
+        .month,.date,.hour,.minute{width:30%}
+        .bg-eases{top:30px;position: absolute;width:100%;height:100%;left:0;background: linear-gradient(#f7f7f7,rgba(245,245,245,0)52%,rgba(245,245,245,0)48%,#f7f7f7);}
+        .calendar .list{position: absolute;width:100%;}
+        .calendar .ulmodal{position: relative;width:100%;height:144px;overflow: hidden;}
+        .calendar .list li{line-height: 30px;}
+        .calendar .list li.focus{background: #666;color:#fff;}
+        .calendar .selected{position: absolute;border:1px solid #555;border-left: none;border-right: none;width: 100%;height: 30px;top:90px;}
+        .title{text-align: center;font-size: 14px;line-height: 30px;background: #fff;}
+    </style>
+</head>
+<body>
+<input type="text" id="demo"/>
+<script>
+    (function(win,doc,Math){
+        var until = (function(){
+            var me = {};
+            me.getEmById = function(id){
+                return typeof id === "string" ? doc.getElementById(id) : id;
+            }
+            me.extend = function(obj, over){
+                for(var i in over){
+                    obj[i] = over[i];
+                }
+                return obj;
+            }
+            me.createElem = function(tag,c){
+                var tag = doc.createElement(tag);
+
+                if(c){
+                    tag.className = c;
+                }
+                return tag;
+
+            }
+            me.hasClass = function(e, c){
+                var regexp = new RegExp("(^|\\s)" + c + "(\\s|$)");
+                return regexp.test(e.className);
+            }
+            me.addClass = function(e, c){
+                if(!this.hasClass(e,c)){
+                    e.className = e.className +" "+c;
+                }
+            }
+            me.removeClass = function(e, c){
+                if(this.hasClass(e,c)){
+                    var cn = e.className;
+                    e.className = cn.replace(new RegExp("(^|\\s)" + c + "(\\s|$)","g"), function(o,a){
+                        return " ";
+                    })
+                }
+            }
+            me.createDom = function(c,start,end){
+                var y = this.createElem("div",c),
+                    title = this.createElem("div","title"),
+                    ulmodal = this.createElem("div","ulmodal"),
+                    ul = this.createElem("ul","list"),
+                    bg = this.createElem("div","bg-eases"),
+                    selected = this.createElem("div","selected"),
+                    li="";
+
+                while(start<=end){
+                    var liTag = this.createElem("li");
+                    liTag.innerText=start;
+                    li+=liTag.outerHTML;
+                    ++start;
+                }
+                title.innerText = c;
+                ul.innerHTML =li;
+                ul.setAttribute("role", c);
+                y.appendChild(title);
+                ulmodal.appendChild(ul);
+                y.appendChild(ulmodal);
+                y.appendChild(bg);
+                y.appendChild(selected);
+
+                return y;
+
+            }
+            me.addEventListener = function(e,type,obj,b){
+                e.addEventListener(type,obj,b);
+            }
+            me.isContainEm = function(contain, target){
+                if(contain == target) return true;
+                var p = target.parentNode;
+                while(p){
+                    if(p == contain)return true;
+                    p = p.parentNode;
+                }
+                return false;
+            }
+            return me;
+        })();
+        function scrollDate(id, options){
+            this.em = until.getEmById(id);
+            this.options = {
+                availDate : ["2005-8-11","2014-10-21"],
+                defaultDate : new Date()
+            }
+            until.extend(this.options, options);
+            this.init();
+        }
+        scrollDate.prototype.init = function(){
+            this.dateArr= [];
+            this.createDom();
+            this.event();
+            this.refresh();
+
+        }
+        scrollDate.prototype.refresh = function(dateObj){
+            if(dateObj){
+                var year = dateObj.getFullYear(),
+                    month = (dateObj.getMonth() +1),
+                    date = dateObj.getDate();
+            }else{
+                var year = this.options.defaultDate.getFullYear(),
+                    month = (this.options.defaultDate.getMonth() +1),
+                    date = this.options.defaultDate.getDate();
+            }
+            var startYear = this.options.availDate[0].split("-")[0];
+            this.setFocus(this.yearDiv.getElementsByTagName("li")[year-startYear]);
+            this.setFocus(this.monthDiv.getElementsByTagName("li")[month-1]);
+            this.setFocus(this.dateDiv.getElementsByTagName("li")[date-1]);
+
+        }
+        scrollDate.prototype.setFocus = function(e){
+            var lis = e.parentNode.childNodes,
+                liH = e.offsetHeight,
+                role = e.parentNode.getAttribute("role");
+
+
+            for(var i=0;i<lis.length;i++){
+               until.removeClass(lis[i],"focus");
+            }
+            if(role=="year"){
+                this.dateArr[0] = e.innerText;
+            }else if(role == "month"){
+                this.dateArr[1] = e.innerText;
+            }else if(role == "date"){
+                this.dateArr[2] = e.innerText;
+            }
+            if(this.dateArr.length==3){
+                var selectDateTime = new Date(this.dateArr.join("-")).getTime();
+                var startDateTime = new Date(this.options.availDate[0]).getTime();
+                var endDateTime = new Date(this.options.availDate[1]).getTime();
+                if(selectDateTime>endDateTime){
+                    this.dateArr=[];
+                    this.refresh(new Date(this.options.availDate[1]));
+                    return;
+                }else if(selectDateTime < startDateTime){
+                    this.dateArr=[];
+                    this.refresh(new Date(this.options.availDate[0]));
+                    return;
+                }
+            }
+
+
+            until.addClass(e,"focus");
+            e.parentNode.style.top = (- e.offsetTop + liH *2) +"px";
+            this.em.value=this.dateArr.join("-");
+        }
+        scrollDate.prototype.createDom = function(){
+            var frageElement = doc.createDocumentFragment();
+            this.bgModal = until.createElem("div", "bg-modal");
+            this.bgModal.style.display = "none";
+           // doc.body.appendChild(this.bgModal);
+
+            this.containDiv = until.createElem("div", "calendar c");
+            this.containDiv.style.display = "none";
+            this.yearDiv = until.createDom("year",this.options.availDate[0].split("-")[0],this.options.availDate[1].split("-")[0]);
+            this.monthDiv = until.createDom("month",1,12);
+            this.dateDiv = until.createDom("date",1,31);
+            this.containDiv.appendChild(this.yearDiv);
+            this.containDiv.appendChild(this.monthDiv);
+            this.containDiv.appendChild(this.dateDiv);
+            frageElement.appendChild(this.containDiv);
+            document.body.appendChild(frageElement);
+        }
+        scrollDate.prototype.event = function(){
+            var self = this;
+            until.addEventListener(this.containDiv,"touchstart",this,false);
+            until.addEventListener(this.containDiv,"touchmove",this,false);
+            until.addEventListener(this.containDiv,"touchend",this,false);
+         /*   until.addEventListener(this.bgModal,"click",function(){
+                self.bgModal.style.display = "none";
+                self.containDiv.style.display = "none";
+            },false);*/
+            until.addEventListener(doc,"touchend",function(e){
+
+                if(e.srcElement == self.em)return;
+                if(until.isContainEm(self.containDiv, e.srcElement))return;
+                self.bgModal.style.display = "none";
+                self.containDiv.style.display = "none";
+
+            },false);
+            until.addEventListener(this.em,"focus",function(){
+                self.bgModal.style.display = "block";
+                self.containDiv.style.display = "block";
+            },false);
+
+        };
+        scrollDate.prototype.handleEvent = function(e){
+            var type = e.type;
+            if(e.target.parentNode.childNodes.length<3)return;
+            switch (type){
+                case "touchstart":
+                    this.starty = e.touches[0].clientY;
+                    this.targetElem = e.target.parentNode.childNodes[1].children[0];
+                    this.liHeight = this.targetElem.children[0].offsetHeight;
+                    this.topY = e.target.parentNode.childNodes[3].offsetTop -this.liHeight;
+                    this.maxScroll = this.targetElem.offsetHeight - this.topY-this.liHeight;
+                    break;
+                case "touchmove":
+                    this.currentY = this.targetElem.offsetTop;
+                    var dy = e.changedTouches[0].clientY - this.starty;
+                    this.starty = e.changedTouches[0].clientY;
+
+                    if(dy>0){
+                        if(this.currentY < this.topY){
+                            this.targetElem.style.top = (this.currentY + dy) +"px";
+                        }
+                        else{
+                            this.targetElem.style.top = this.topY +"px";
+                        }
+                    }else{
+                        if(this.currentY<-this.maxScroll){
+                            this.targetElem.style.top = (-this.maxScroll) +"px";
+                        }
+                        else{
+                            this.targetElem.style.top = (this.currentY + dy) +"px";
+                        }
+                    }
+                    break;
+                case "touchend":
+                    var currentY = this.targetElem.offsetTop;
+                    var intCurrentY = currentY % this.liHeight;
+                    var distance;
+                    if(Math.abs(intCurrentY) >= this.liHeight/2){
+                        distance = (currentY - this.liHeight/2  -  (intCurrentY%(this.liHeight/2)));
+                    }else{
+                        distance = currentY - intCurrentY;
+                    }
+                    if(distance>this.topY){
+                        this.targetElem.style.top = this.topY +"px";
+                    }else if(distance < -this.maxScroll){
+                        this.targetElem.style.top = -this.maxScroll +"px";
+                    }else{
+                        this.targetElem.style.top = distance +"px";
+                    }
+
+                    //this.setFocus(this.targetElem.children[(this.topY/this.liHeight)-distance/this.liHeight]);
+                    var value = this.targetElem.children[(this.topY/this.liHeight)-distance/this.liHeight].innerText
+                    var role = this.targetElem.getAttribute("role");
+                    if(role == "year"){
+                        this.dateArr[0] = value;
+                    }else if(role == "month"){
+                        this.dateArr[1] = value;
+                    }else if(role == "date"){
+                        this.dateArr[2] = value;
+                    }
+
+                    this.refresh(new Date(this.dateArr.join("-")));
+                    break;
+            }
+        }
+    win.scrollDate = scrollDate;
+    })(window,document,Math);
+
+
+    new scrollDate("demo");
+</script>
+
+
+
+</body>
+</html>
